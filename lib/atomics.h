@@ -31,7 +31,9 @@
 #if HAVE_STDATOMIC_H
 /* If possible, use the compiler's preferred atomics.  */
 # include <stdatomic.h>
+# include <threads.h>
 #else
 /* Otherwise, try to use the builtins provided by this compiler.  */
 # include "stdatomic-fbsd.h"
+# define thread_local __thread
 #endif /* HAVE_STDATOMIC_H */
