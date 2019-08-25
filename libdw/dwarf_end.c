@@ -94,14 +94,15 @@ dwarf_end (Dwarf *dwarf)
       /* And the split Dwarf.  */
       tdestroy (dwarf->split_tree, noop_free);
 
-      struct libdw_memblock *memp = dwarf->mem_tail;
-      /* The first block is allocated together with the Dwarf object.  */
-      while (memp->prev != NULL)
+      /* Free the internally allocated memory.  */
+      struct libdw_memblock *memp = (struct libdw_memblock *)dwarf->mem_tail;
+      while (memp != NULL)
 	{
 	  struct libdw_memblock *prevp = memp->prev;
 	  free (memp);
 	  memp = prevp;
 	}
+      pthread_key_delete (dwarf->mem_key);
 
       /* Free the pubnames helper structure.  */
       free (dwarf->pubnames_sets);
