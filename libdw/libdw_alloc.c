@@ -37,7 +37,6 @@
 #include "system.h"
 #include "atomics.h"
 
-
 void *
 __libdw_allocate (Dwarf *dbg, size_t minsize, size_t align)
 {
@@ -53,8 +52,9 @@ __libdw_allocate (Dwarf *dbg, size_t minsize, size_t align)
   newp->size = size - offsetof (struct libdw_memblock, mem);
   newp->remaining = (uintptr_t) newp + size - (result + minsize);
 
-  newp->prev = dbg->mem_tail;
-  dbg->mem_tail = newp;
+  newp->prev = (struct libdw_memblock*)atomic_exchange_explicit(
+      &dbg->mem_tail, (uintptr_t)newp, memory_order_relaxed);
+  pthread_setspecific(dbg->mem_key, newp);
 
   return (void *) result;
 }

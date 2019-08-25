@@ -31,9 +31,11 @@
 
 #include <libintl.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 #include <libdw.h>
 #include <dwarf.h>
+#include "atomics.h"
 
 
 /* gettext helper macros.  */
@@ -147,6 +149,17 @@ enum
 
 #include "dwarf_sig8_hash.h"
 
+/* Structure for internal memory handling.  This is basically a simplified
+   reimplementation of obstacks.  Unfortunately the standard obstack
+   implementation is not usable in libraries.  */
+struct libdw_memblock
+{
+  size_t size;
+  size_t remaining;
+  struct libdw_memblock *prev;
+  char mem[0];
+};
+
 /* This is the structure representing the debugging state.  */
 struct Dwarf
 {
@@ -218,16 +231,11 @@ struct Dwarf
   /* Similar for addrx/constx, which will come from .debug_addr section.  */
   struct Dwarf_CU *fake_addr_cu;
 
-  /* Internal memory handling.  This is basically a simplified
-     reimplementation of obstacks.  Unfortunately the standard obstack
-     implementation is not usable in libraries.  */
-  struct libdw_memblock
-  {
-    size_t size;
-    size_t remaining;
-    struct libdw_memblock *prev;
-    char mem[0];
-  } *mem_tail;
+  /* Thread-local key for internal memory handling.  */
+  pthread_key_t mem_key;
+
+  /* Atomic tail pointer for Internal memory handling.  */
+  atomic_uintptr_t mem_tail;
 
   /* Default size of allocated memory blocks.  */
   size_t mem_default_size;
@@ -570,21 +578,27 @@ libdw_valid_user_form (int form)
 extern void __libdw_seterrno (int value) internal_function;
 
 
-/* Memory handling, the easy parts.  This macro does not do any locking.  */
+/* Memory handling, the easy parts.  */
 #define libdw_alloc(dbg, type, tsize, cnt) \
-  ({ struct libdw_memblock *_tail = (dbg)->mem_tail;			      \
-     size_t _required = (tsize) * (cnt);				      \
-     type *_result = (type *) (_tail->mem + (_tail->size - _tail->remaining));\
-     size_t _padding = ((__alignof (type)				      \
-			 - ((uintptr_t) _result & (__alignof (type) - 1)))    \
-			& (__alignof (type) - 1));			      \
-     if (unlikely (_tail->remaining < _required + _padding))		      \
-       _result = (type *) __libdw_allocate (dbg, _required, __alignof (type));\
+  ({ struct libdw_memblock *_tail = pthread_getspecific (dbg->mem_key);       \
+     size_t _req = (tsize) * (cnt);					      \
+     type *_result;							      \
+     if (unlikely (_tail == NULL))					      \
+       _result = (type *) __libdw_allocate (dbg, _req, __alignof (type));     \
      else								      \
        {								      \
-	 _required += _padding;						      \
-	 _result = (type *) ((char *) _result + _padding);		      \
-	 _tail->remaining -= _required;					      \
+         _result = (type *) (_tail->mem + (_tail->size - _tail->remaining));  \
+         size_t _padding = ((__alignof (type)				      \
+			    - ((uintptr_t) _result & (__alignof (type) - 1))) \
+			       & (__alignof (type) - 1));		      \
+         if (unlikely (_tail->remaining < _req + _padding))		      \
+           _result = (type *) __libdw_allocate (dbg, _req, __alignof (type)); \
+         else								      \
+           {								      \
+	     _req += _padding;						      \
+	     _result = (type *) ((char *) _result + _padding);		      \
+	     _tail->remaining -= _req;					      \
+           }								      \
        }								      \
      _result; })
 
