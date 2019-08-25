@@ -1,3 +1,7 @@
+2019-08-25  Srđan Milaković  <sm108@rice.edu@rice.edu>
+
+	* dwarf_abbrev_hash.{c,h}: Use the *_concurrent hash table.
+
 2019-08-25  Jonathon Anderson  <jma14@rice.edu>
 
 	* libdw_alloc.c (__libdw_allocate): Added thread-safe stack allocator.
