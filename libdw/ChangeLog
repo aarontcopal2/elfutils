@@ -1,3 +1,7 @@
+2019-08-25  Srđan Milaković  <sm108@rice.edu@rice.edu>
+
+	* dwarf_abbrev_hash.{c,h}: Use the *_concurrent hash table.
+
 2019-07-05  Omar Sandoval  <osandov@fb.com>
 
 	* Makefile.am (libdw_so_LIBS): Replace libebl.a with libebl_pic.a.
