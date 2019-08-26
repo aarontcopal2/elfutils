@@ -418,9 +418,8 @@ dwarf_begin_elf (Elf *elf, Dwarf_Cmd cmd, Elf_Scn *scngrp)
      actual allocation.  */
   result->mem_default_size = mem_default_size;
   result->oom_handler = __libdw_oom;
-  pthread_rwlock_init(&result->mem_rwl, NULL);
-  result->mem_stacks = 0;
-  result->mem_tails = NULL;
+  pthread_key_create (&result->mem_key, NULL);
+  atomic_init (&result->mem_tail, (uintptr_t)NULL);
 
   if (cmd == DWARF_C_READ || cmd == DWARF_C_RDWR)
     {
