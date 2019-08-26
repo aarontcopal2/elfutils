@@ -29,7 +29,7 @@
 
 #include <stddef.h>
 #include <pthread.h>
-#include "stdatomic.h"
+#include "atomics.h"
 /* Before including this file the following macros must be defined:
 
    NAME      name of the hash table structure.
